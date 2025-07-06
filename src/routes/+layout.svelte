@@ -1,23 +1,20 @@
-<!-- src/routes/+layout.svelte -->
 <script>
-  import '@fontsource/inter/400.css';
-  import '@fontsource/inter/500.css';
-  import '@fontsource/inter/700.css';
   import '../app.css';
-  import { onMount } from 'svelte';
-  import { supabase } from '$lib/supabaseClient';
-  import { writable } from 'svelte/store';
+  import { invalidate } from '$app/navigation'
+  import { onMount } from 'svelte'
 
-  export const session = writable(null);
+  let { data, children } = $props()
+  let { session, supabase } = $derived(data)
 
-  onMount(async () => {
-    const { data: { session: s } } = await supabase.auth.getSession();
-    session.set(s);
+  onMount(() => {
+    const { data } = supabase.auth.onAuthStateChange((_, newSession) => {
+      if (newSession?.expires_at !== session?.expires_at) {
+        invalidate('supabase:auth')
+      }
+    })
 
-    supabase.auth.onAuthStateChange((_event, s) => {
-      session.set(s);
-    });
-  });
+    return () => data.subscription.unsubscribe()
+  })
 </script>
 
-<slot />
+{@render children()}
