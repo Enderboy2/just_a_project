@@ -1,47 +1,105 @@
-// src/routes/dashboard/+page.server.ts
 import { db } from '$lib/server/db';
 import { subjects } from '$lib/server/db/schema';
-import { eq } from 'drizzle-orm';
+import { eq, and } from 'drizzle-orm';
 import { redirect, fail } from '@sveltejs/kit';
-import type { Actions } from './$types';
+import type { Actions, PageServerLoad } from './$types';
+
+export const load: PageServerLoad = async ({ locals }) => {
+	const user = locals.session?.user;
+	console.log('[LOAD] User:', user);
+
+	if (!user) {
+		console.warn('[LOAD] No user session found. Redirecting to /login.');
+		throw redirect(303, '/login');
+	}
+
+	try {
+		const subjectList = await db
+			.select()
+			.from(subjects)
+			.where(eq(subjects.userId, user.id));
+
+		console.log('[LOAD] Subjects found:', subjectList);
+
+		return { subjects: subjectList, userId: user.id };
+	} catch (err) {
+		console.error('[LOAD ERROR]', err);
+		throw new Error('Failed to load subjects');
+	}
+};
 
 export const actions: Actions = {
-  add: async ({ locals, request }) => {
-    const user = locals.session?.user;
-    if (!user) throw redirect(303, '/login');
+add: async ({ request, locals }) => {
+	const user = locals.session?.user;
+	if (!user) throw redirect(303, '/login');
 
-    const form = await request.formData();
-    const name = form.get('name')?.toString().trim();
+	const form = await request.formData();
+	let name = form.get('name')?.toString()?.trim();
+	if (!name) name = 'New Subject';
+  console.log('[ADD ACTION] Inserting subject:', name, 'for user:', user.id);
 
-    if (!name) return fail(400, { error: 'Name is required' });
+	await db.insert(subjects).values({
+		name,
+		userId: user.id,
+		fileCount: 0
+	});
+  console.log('[ADD ACTION] Inserted');
 
-    await db.insert(subjects).values({ name, userId: user.id });
-    return { success: true };
+	return { success: true };
+},
+
+	delete: async ({ request, locals }) => {
+		console.log('[DELETE ACTION] Called');
+		const user = locals.session?.user;
+		console.log('[DELETE ACTION] User:', user);
+
+		if (!user) {
+			console.warn('[DELETE ACTION] No user session. Redirecting.');
+			throw redirect(303, '/login');
+		}
+
+		try {
+			const form = await request.formData();
+			const id = form.get('id')?.toString();
+
+			console.log('[DELETE ACTION] Form ID:', id);
+
+			if (!id) {
+				console.warn('[DELETE ACTION] No ID provided');
+				return fail(400);
+			}
+
+			// Extra check: only delete if the subject belongs to the user
+			const result = await db
+				.delete(subjects)
+				.where(and(eq(subjects.id, id), eq(subjects.userId, user.id)));
+
+			console.log('[DELETE ACTION] Delete result:', result);
+
+			return { success: true };
+		} catch (err) {
+			console.error('[DELETE ACTION ERROR]', err);
+			throw new Error('Failed to delete subject');
+		}
   },
+  rename: async ({ request, locals }) => {
+	const user = locals.session?.user;
+	if (!user) throw redirect(303, '/login');
 
-  delete: async ({ locals, request }) => {
-    const user = locals.session?.user;
-    if (!user) throw redirect(303, '/login');
+	const form = await request.formData();
+	const id = form.get('id')?.toString();
+	let name = form.get('name')?.toString()?.trim();
 
-    const form = await request.formData();
-    const id = form.get('id')?.toString();
-    if (!id) return fail(400);
+	if (!id) return fail(400, { error: 'Invalid rename' });
 
-    await db.delete(subjects).where(eq(subjects.id, id));
-    return { success: true };
-  },
+	if (!name) name = 'New Subject';
 
-  rename: async ({ locals, request }) => {
-    const user = locals.session?.user;
-    if (!user) throw redirect(303, '/login');
+	await db
+		.update(subjects)
+		.set({ name })
+		.where(and(eq(subjects.id, id), eq(subjects.userId, user.id)));
 
-    const form = await request.formData();
-    const id = form.get('id')?.toString();
-    const name = form.get('name')?.toString();
+	return { success: true };
+},
 
-    if (!id || !name) return fail(400);
-
-    await db.update(subjects).set({ name }).where(eq(subjects.id, id));
-    return { success: true };
-  }
 };
