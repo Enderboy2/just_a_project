@@ -13,9 +13,13 @@
 
 	let menuOpenId: string | null = null;
 	let renamingId: string | null = null;
+	let selectedSubject: { name: string; fileCount: number; id: string } | null = null;
 
 	// use local subjects for optimistic updates
 	let subjects = [...data.subjects];
+	function selectSubject(subject) {
+	selectedSubject = selectedSubject?.id === subject.id ? null : subject;
+	}
 
 	function startAdding() {
 		adding = true;
@@ -65,12 +69,12 @@
 
 <div class="flex h-screen">
 	<!-- Sidebar -->
-	<div class={`bg-[#202123] text-white p-2 w-64 transition-all duration-300 ${sidebarOpen ? 'block' : 'hidden'} md:block`}>
+	<div class={`bg-[#FFFFFF] text-[#2D2D2D] p-2 w-64 transition-all duration-300 ${sidebarOpen ? 'block' : 'hidden'}`}>
 		<!-- Sidebar header -->
 		<div class="flex items-center justify-between mb-4">
 			<button
 				on:click={startAdding}
-				class="bg-blue-600 hover:bg-blue-700 text-white text-sm px-3 py-1 rounded"
+    			class="bg-[#887f99] hover:bg-[#887f99] text-white text-sm px-3 py-1 rounded"
 			>
 				+ New Subject
 			</button>
@@ -83,7 +87,7 @@
 				<input
 					name="name"
 					bind:this={inputRef}
-					class="w-full bg-transparent border-b text-white focus:outline-none"
+					class="w-full bg-transparent border-[#887f99] text-[#2D2D2D] placeholder-[#5c5470] focus:outline-none"
 					placeholder="New Subject"
 					autocomplete="off"
 					on:keydown={(e) => {
@@ -98,7 +102,10 @@
 		<!-- Subject list -->
 		<ul class="space-y-1 overflow-y-auto h-screen pr-1">
 			{#each subjects as subject (subject.id)}
-				<li class="group flex items-center justify-between hover:bg-[#343541] p-2 rounded relative">
+				<li class="group flex items-center justify-between hover:bg-[#F3F0FF] p-2 rounded relative cursor-pointer"
+				on:click={() => selectSubject(subject)}
+				>
+
 					<!-- Subject name or input if renaming -->
 					{#if renamingId === subject.id}
 						<form method="POST" action="?/rename" use:enhance={handleRenameEnhance} class="flex-grow mr-2">
@@ -133,7 +140,7 @@
 						</button>
 
 						{#if menuOpenId === subject.id}
-							<div class="absolute right-0 top-6 bg-[#343541] text-white border border-gray-700 rounded shadow z-10 w-28">
+							<div class="absolute right-0 top-6 bg-[#2e2938] text-white border border-gray-700 rounded shadow z-10 w-28">
 								<!-- Rename trigger -->
 								<button
 									type="button"
@@ -167,7 +174,7 @@
 	<!-- Sidebar Toggle -->
 	{#if !sidebarOpen}
 		<button
-			class="absolute top-2 left-2 text-sm bg-gray-800 text-white px-3 py-1 rounded"
+			class="absolute top-2 left-2 text-sm bg-[#2e2938] text-white px-3 py-1 rounded"
 			on:click={() => (sidebarOpen = true)}
 		>
 			☰
@@ -175,8 +182,17 @@
 	{/if}
 
 	<!-- Main content -->
-	<div class="flex-1 bg-[#343541] text-white p-6">
-		<h1 class="text-2xl font-bold">Welcome</h1>
-		<p>Select or manage your subjects from the sidebar.</p>
+	<div class="flex-1 bg-[#e2ddeb] text-[#2e2938] p-6">
+		{#if selectedSubject}
+			<div class="flex flex-col items-center text-center">
+				<h1 class="text-2xl font-bold mb-2">{selectedSubject.name}</h1>
+				<p class="mb-6">{selectedSubject.fileCount} files</p>
+			</div>
+		{:else}
+			<h1 class="text-2xl font-bold mb-2">Welcome</h1>
+			<p class="mb-6">Select or manage your subjects from the sidebar.</p>
+		{/if}
 	</div>
+
+
 </div>
